@@ -101,3 +101,32 @@ export const getDigitalVsRetail = async (): Promise<DigitalVsRetail> => {
   const response = await api.get('/stats/digital-vs-retail');
   return response.data;
 };
+
+export interface RetailBreakdown {
+  categories: Category[];
+  topProducts: TopProduct[];
+  spendingOverTime: SpendingOverTime;
+  paymentMethods: PaymentMethod[];
+}
+
+export interface DigitalBreakdown {
+  categories: Category[];
+  topProducts: TopProduct[];
+  spendingOverTime: SpendingOverTime;
+  subscriptions: Array<{
+    name: string;
+    subscriptionId: string;
+    spending: number;
+    count: number;
+  }>;
+}
+
+export const getRetailBreakdown = async (): Promise<RetailBreakdown> => {
+  const response = await api.get('/stats/retail-breakdown');
+  return response.data;
+};
+
+export const getDigitalBreakdown = async (): Promise<DigitalBreakdown> => {
+  const response = await api.get('/stats/digital-breakdown');
+  return response.data;
+};

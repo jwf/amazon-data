@@ -483,3 +483,288 @@ class DataProcessor:
             'limit': limit,
             'totalPages': (total + limit - 1) // limit
         }
+    
+    def get_retail_breakdown(self):
+        """Get retail-specific breakdowns"""
+        breakdown = {
+            'categories': [],
+            'topProducts': [],
+            'spendingOverTime': {'labels': [], 'values': []},
+            'paymentMethods': []
+        }
+        
+        with get_db() as conn:
+            cursor = conn.cursor()
+            
+            # Categories (reuse existing logic but filter for retail only)
+            category_keywords = {
+                'Electronics': ['battery', 'charger', 'headphone', 'earbud', 'cable', 'wireless', 'led', 'display', 'screen', 
+                               'monitor', 'keyboard', 'mouse', 'router', 'wifi', 'ethernet', 'speaker', 'amplifier', 
+                               'kindle', 'e-reader', 'chromebook', 'laptop', 'computer', 'hard drive', 'external drive',
+                               'smart lock', 'smart home', 'security camera', 'nvr', 'camera system'],
+                'Mobile Devices': ['iphone', 'ipad', 'smartphone', 'tablet', 'apple watch', 'smartwatch', 
+                                  'smart watch', 'huawei watch', 'samsung phone', 'google pixel', 'oura ring'],
+                'Photography': ['lens', 'canon ef', 'canon ef-', 'canon ef-m', 'sigma', 'photography', 
+                               'dslr', 'mirrorless', 'camcorder', 'vixia', 'powershot', 'eos', 
+                               'viewfinder', 'camera lens'],
+                'Gaming': ['playstation', 'nintendo', 'xbox', 'switch', 'ps4', 'ps5', 'wii', 'game console', 
+                          'gamepad', 'controller', 'video game', 'gaming'],
+                'Clothing': ['shirt', 'jacket', 'hoodie', 'pants', 'dress', 'shoes', 'socks', 'clothing', 'apparel',
+                            'slipper', 'boot', 'sunglasses', 'glasses', 'rain jacket', 'raincoat'],
+                'Home & Kitchen': ['cabinet', 'organizer', 'storage', 'container', 'mattress', 'bedding', 
+                                  'curtain', 'drape', 'coffee maker', 'coffee brewer', 'nespresso', 
+                                  'moccamaster', 'blender', 'vitamix', 'pasta maker', 'smoker', 
+                                  'air conditioner', 'vacuum', 'roomba', 'dyson', 'air purifier', 
+                                  'hepa', 'popcorn machine', 'aerogarden', 'chicken coop door'],
+                'Tools & Garden': ['lawn mower', 'lawn sweepr', 'string trimmer', 'chipper', 'shredder', 
+                                  'fence', 'mesh', 'generator', 'tool', 'garden', 'yard', 'landscaping', 
+                                  'arborist', 'utility cart', 'garden cart'],
+                'Pet Supplies': ['dog food', 'cat food', 'pet food', 'chicken feed', 'layer pellets', 'layer pellet',
+                                'mixed grains scratch', 'goat feed', 'goat snax', 'pet treat', 'bully stick', 
+                                'dog chew', 'dog treat', 'animal feed', 'feed for', 'dog chews'],
+                'Food & Groceries': ['pancake mix', 'food', 'grocery', 'ingredient', 'spice', 'seasoning'],
+                'Fitness Equipment': ['elliptical', 'treadmill', 'walking pad', 'exercise', 'fitness', 'gym',
+                                     'weights', 'yoga', 'workout', 'dumbbell'],
+                'Beauty & Personal Care': ['makeup', 'cosmetic', 'beauty', 'skincare', 'shampoo', 'soap',
+                                           'hair mask', 'hair growth', 'toothbrush', 'sonicare', 'oral-b',
+                                           'laser hair', 'jewelry polisher'],
+                'Sports & Outdoors': ['sport', 'outdoor', 'camping', 'hiking', 'tent', 'backpack', 'paddle',
+                                     'sup', 'paddleboard', 'volleyball', 'badminton', 'trampoline'],
+                'Toys & Games': ['toy', 'game', 'lego', 'puzzle', 'board game', 'building kit', 'playset'],
+                'Health & Wellness': ['vitamin', 'supplement', 'health', 'wellness', 'fitness', 'electrolyte',
+                                     'multivitamin', 'gummy vitamin', 'dna test', '23andme', 'protein'],
+                'Baby & Kids': ['car seat', 'booster seat', 'booster', 'baby', 'infant', 'toddler', 'stroller', 'diaper'],
+                'Automotive': ['truck', 'vehicle', 'automotive', 'auto tire', 'auto oil', 'car tire', 'car oil'],
+                'Services': ['hire', 'service', 'arborist']
+            }
+            
+            categories = defaultdict(float)
+            cursor.execute('''
+                SELECT product_name, SUM(total_owed) as spending
+                FROM retail_orders
+                WHERE order_status != 'Cancelled'
+                  AND total_owed IS NOT NULL
+                  AND total_owed > 0
+                  AND product_name IS NOT NULL
+                GROUP BY product_name
+            ''')
+            
+            category_order = [
+                'Baby & Kids', 'Pet Supplies', 'Mobile Devices', 'Photography', 'Gaming', 
+                'Fitness Equipment', 'Tools & Garden', 'Food & Groceries', 'Services', 'Automotive',
+                'Electronics', 'Home & Kitchen', 'Clothing', 'Beauty & Personal Care',
+                'Sports & Outdoors', 'Toys & Games', 'Health & Wellness', 'Books & Media'
+            ]
+            
+            for row in cursor.fetchall():
+                product_name = (row['product_name'] or '').lower()
+                category_found = False
+                
+                for category in category_order:
+                    if category in category_keywords:
+                        keywords = category_keywords[category]
+                        if any(keyword in product_name for keyword in keywords):
+                            categories[category] += float(row['spending'] or 0)
+                            category_found = True
+                            break
+                
+                if not category_found:
+                    for category, keywords in category_keywords.items():
+                        if category not in category_order:
+                            if any(keyword in product_name for keyword in keywords):
+                                categories[category] += float(row['spending'] or 0)
+                                category_found = True
+                                break
+                
+                if not category_found:
+                    categories['Other'] += float(row['spending'] or 0)
+            
+            breakdown['categories'] = [{'name': k, 'spending': v} for k, v in sorted(categories.items(), key=lambda x: x[1], reverse=True)]
+            
+            # Top products
+            cursor.execute('''
+                SELECT 
+                    product_name as name,
+                    SUM(quantity) as total_quantity,
+                    SUM(total_owed) as total_spending,
+                    COUNT(DISTINCT order_id) as order_count
+                FROM retail_orders
+                WHERE order_status != 'Cancelled'
+                  AND total_owed IS NOT NULL
+                  AND total_owed > 0
+                  AND product_name IS NOT NULL
+                GROUP BY product_name
+                ORDER BY total_spending DESC
+                LIMIT 15
+            ''')
+            
+            for row in cursor.fetchall():
+                breakdown['topProducts'].append({
+                    'name': row['name'] or 'Unknown',
+                    'quantity': row['total_quantity'] or 0,
+                    'spending': float(row['total_spending'] or 0),
+                    'orders': row['order_count'] or 0
+                })
+            
+            # Spending over time (monthly)
+            cursor.execute('''
+                SELECT 
+                    strftime('%Y-%m', order_date) as period,
+                    SUM(total_owed) as spending
+                FROM retail_orders
+                WHERE order_status != 'Cancelled'
+                  AND total_owed IS NOT NULL
+                  AND total_owed > 0
+                  AND order_date IS NOT NULL
+                GROUP BY period
+                ORDER BY period
+            ''')
+            
+            for row in cursor.fetchall():
+                breakdown['spendingOverTime']['labels'].append(row['period'])
+                breakdown['spendingOverTime']['values'].append(float(row['spending'] or 0))
+            
+            # Payment methods
+            cursor.execute('''
+                SELECT 
+                    payment_instrument_type as method,
+                    SUM(total_owed) as spending
+                FROM retail_orders
+                WHERE order_status != 'Cancelled'
+                  AND total_owed IS NOT NULL
+                  AND total_owed > 0
+                  AND payment_instrument_type IS NOT NULL
+                GROUP BY payment_instrument_type
+                ORDER BY spending DESC
+            ''')
+            
+            for row in cursor.fetchall():
+                breakdown['paymentMethods'].append({
+                    'method': row['method'] or 'Unknown',
+                    'spending': float(row['spending'] or 0)
+                })
+        
+        return breakdown
+    
+    def get_digital_breakdown(self):
+        """Get digital-specific breakdowns"""
+        breakdown = {
+            'categories': [],
+            'topProducts': [],
+            'spendingOverTime': {'labels': [], 'values': []},
+            'subscriptions': []
+        }
+        
+        with get_db() as conn:
+            cursor = conn.cursor()
+            
+            # Digital categories
+            digital_categories = defaultdict(float)
+            cursor.execute('''
+                SELECT product_name, SUM(our_price) as spending, subscription_order_info
+                FROM digital_items
+                WHERE our_price IS NOT NULL
+                  AND our_price > 0
+                  AND product_name IS NOT NULL
+                GROUP BY product_name, subscription_order_info
+            ''')
+            
+            for row in cursor.fetchall():
+                product_name = (row['product_name'] or '').lower()
+                subscription_info = row['subscription_order_info'] or ''
+                spending = float(row['spending'] or 0)
+                
+                # Categorize digital items
+                if 'subscription' in subscription_info.lower() or 'subscription' in product_name:
+                    if 'prime' in product_name:
+                        digital_categories['Prime Membership'] += spending
+                    elif 'paramount' in product_name or 'paramount+' in product_name:
+                        digital_categories['Paramount+'] += spending
+                    elif 'stacktv' in product_name or 'stack tv' in product_name:
+                        digital_categories['STACK TV'] += spending
+                    elif 'video' in product_name or 'streaming' in product_name:
+                        digital_categories['Video Streaming'] += spending
+                    else:
+                        digital_categories['Other Subscriptions'] += spending
+                elif 'movie' in product_name or 'film' in product_name:
+                    digital_categories['Movies'] += spending
+                elif 'book' in product_name or 'kindle' in product_name:
+                    digital_categories['Books & eBooks'] += spending
+                elif 'music' in product_name or 'song' in product_name or 'album' in product_name:
+                    digital_categories['Music'] += spending
+                elif 'app' in product_name or 'software' in product_name:
+                    digital_categories['Apps & Software'] += spending
+                elif 'game' in product_name:
+                    digital_categories['Games'] += spending
+                else:
+                    digital_categories['Other Digital'] += spending
+            
+            breakdown['categories'] = [{'name': k, 'spending': v} for k, v in sorted(digital_categories.items(), key=lambda x: x[1], reverse=True)]
+            
+            # Top products
+            cursor.execute('''
+                SELECT 
+                    product_name as name,
+                    SUM(quantity_ordered) as total_quantity,
+                    SUM(our_price) as total_spending,
+                    COUNT(DISTINCT order_id) as order_count
+                FROM digital_items
+                WHERE our_price IS NOT NULL
+                  AND our_price > 0
+                  AND product_name IS NOT NULL
+                GROUP BY product_name
+                ORDER BY total_spending DESC
+                LIMIT 15
+            ''')
+            
+            for row in cursor.fetchall():
+                breakdown['topProducts'].append({
+                    'name': row['name'] or 'Unknown',
+                    'quantity': row['total_quantity'] or 0,
+                    'spending': float(row['total_spending'] or 0),
+                    'orders': row['order_count'] or 0
+                })
+            
+            # Spending over time (monthly)
+            cursor.execute('''
+                SELECT 
+                    strftime('%Y-%m', order_date) as period,
+                    SUM(our_price) as spending
+                FROM digital_items
+                WHERE our_price IS NOT NULL
+                  AND our_price > 0
+                  AND order_date IS NOT NULL
+                GROUP BY period
+                ORDER BY period
+            ''')
+            
+            for row in cursor.fetchall():
+                breakdown['spendingOverTime']['labels'].append(row['period'])
+                breakdown['spendingOverTime']['values'].append(float(row['spending'] or 0))
+            
+            # Subscriptions (items with subscription info)
+            cursor.execute('''
+                SELECT 
+                    product_name,
+                    subscription_order_info,
+                    SUM(our_price) as spending,
+                    COUNT(*) as count
+                FROM digital_items
+                WHERE our_price IS NOT NULL
+                  AND our_price > 0
+                  AND subscription_order_info IS NOT NULL
+                  AND subscription_order_info != 'Not Applicable'
+                GROUP BY product_name, subscription_order_info
+                ORDER BY spending DESC
+                LIMIT 20
+            ''')
+            
+            for row in cursor.fetchall():
+                breakdown['subscriptions'].append({
+                    'name': row['product_name'] or 'Unknown',
+                    'subscriptionId': row['subscription_order_info'],
+                    'spending': float(row['spending'] or 0),
+                    'count': row['count']
+                })
+        
+        return breakdown

@@ -58,3 +58,13 @@ def get_orders():
     page = int(request.args.get('page', 1))
     limit = int(request.args.get('limit', 50))
     return jsonify(processor.get_orders(page, limit))
+
+@api_bp.route('/stats/retail-breakdown', methods=['GET'])
+def get_retail_breakdown():
+    """Get retail-specific breakdowns"""
+    return jsonify(processor.get_retail_breakdown())
+
+@api_bp.route('/stats/digital-breakdown', methods=['GET'])
+def get_digital_breakdown():
+    """Get digital-specific breakdowns"""
+    return jsonify(processor.get_digital_breakdown())

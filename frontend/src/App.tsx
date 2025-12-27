@@ -7,6 +7,8 @@ import CategoryBreakdown from './components/CategoryBreakdown';
 import PaymentMethodsChart from './components/PaymentMethodsChart';
 import ReturnStatsCard from './components/ReturnStatsCard';
 import DigitalVsRetailChart from './components/DigitalVsRetailChart';
+import RetailBreakdown from './components/RetailBreakdown';
+import DigitalBreakdown from './components/DigitalBreakdown';
 
 function App() {
   const [summary, setSummary] = useState<SummaryStats | null>(null);
@@ -101,6 +103,16 @@ function App() {
 
         <div className="bg-white rounded-lg shadow p-6">
           <ReturnStatsCard />
+        </div>
+
+        {/* Retail Breakdown Section */}
+        <div className="mt-12 bg-gray-50 rounded-lg p-8">
+          <RetailBreakdown />
+        </div>
+
+        {/* Digital Breakdown Section */}
+        <div className="mt-12 bg-gray-50 rounded-lg p-8">
+          <DigitalBreakdown />
         </div>
       </main>
     </div>
