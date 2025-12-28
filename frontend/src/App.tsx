@@ -2,9 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { getSummary, SummaryStats } from './api';
 import SummaryCard from './components/SummaryCard';
 import SpendingOverTimeChart from './components/SpendingOverTimeChart';
-import TopProductsChart from './components/TopProductsChart';
-import CategoryBreakdown from './components/CategoryBreakdown';
-import PaymentMethodsChart from './components/PaymentMethodsChart';
 import ReturnStatsCard from './components/ReturnStatsCard';
 import DigitalVsRetailChart from './components/DigitalVsRetailChart';
 import RetailBreakdown from './components/RetailBreakdown';
@@ -86,33 +83,19 @@ function App() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <CategoryBreakdown />
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <PaymentMethodsChart />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <TopProductsChart />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <ReturnStatsCard />
-        </div>
-
         {/* Retail Breakdown Section */}
-        <div className="mt-12 bg-gray-50 rounded-lg p-8">
+        <div className="mt-12 bg-gray-50 rounded-lg p-8 mb-8">
           <RetailBreakdown />
         </div>
 
         {/* Digital Breakdown Section */}
-        <div className="mt-12 bg-gray-50 rounded-lg p-8">
+        <div className="mt-12 bg-gray-50 rounded-lg p-8 mb-8">
           <DigitalBreakdown />
+        </div>
+
+        {/* Returns Section */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <ReturnStatsCard />
         </div>
       </main>
     </div>
