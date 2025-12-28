@@ -130,3 +130,65 @@ export const getDigitalBreakdown = async (): Promise<DigitalBreakdown> => {
   const response = await api.get('/stats/digital-breakdown');
   return response.data;
 };
+
+export interface Order {
+  orderId: string;
+  date: string;
+  productName: string;
+  total: number;
+  quantity: number;
+  status: string;
+  paymentMethod: string;
+  asin?: string;
+  subscriptionInfo?: string;
+}
+
+export interface OrdersByCategory {
+  orders: Order[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const getOrdersByCategory = async (
+  category: string,
+  minPrice?: number,
+  maxPrice?: number,
+  startDate?: string,
+  endDate?: string,
+  page: number = 1,
+  limit: number = 100,
+  sortBy: string = 'order_date',
+  sortOrder: 'asc' | 'desc' = 'desc'
+): Promise<OrdersByCategory> => {
+  const params: any = { category, page, limit, sort_by: sortBy, sort_order: sortOrder };
+  if (minPrice !== undefined) params.min_price = minPrice;
+  if (maxPrice !== undefined) params.max_price = maxPrice;
+  if (startDate) params.start_date = startDate;
+  if (endDate) params.end_date = endDate;
+  
+  const response = await api.get('/orders/by-category', { params });
+  return response.data;
+};
+
+export const getDigitalOrdersByCategory = async (
+  category: string,
+  minPrice?: number,
+  maxPrice?: number,
+  startDate?: string,
+  endDate?: string,
+  page: number = 1,
+  limit: number = 100,
+  sortBy: string = 'order_date',
+  sortOrder: 'asc' | 'desc' = 'desc'
+): Promise<OrdersByCategory> => {
+  const params: any = { category, page, limit, sort_by: sortBy, sort_order: sortOrder };
+  if (minPrice !== undefined) params.min_price = minPrice;
+  if (maxPrice !== undefined) params.max_price = maxPrice;
+  if (startDate) params.start_date = startDate;
+  if (endDate) params.end_date = endDate;
+  
+  const response = await api.get('/digital-orders/by-category', { params });
+  return response.data;
+};

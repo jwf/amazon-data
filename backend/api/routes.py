@@ -68,3 +68,37 @@ def get_retail_breakdown():
 def get_digital_breakdown():
     """Get digital-specific breakdowns"""
     return jsonify(processor.get_digital_breakdown())
+
+@api_bp.route('/orders/by-category', methods=['GET'])
+def get_orders_by_category():
+    """Get retail orders filtered by category with optional price and date filters"""
+    category = request.args.get('category', '')
+    min_price = request.args.get('min_price', type=float)
+    max_price = request.args.get('max_price', type=float)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 100))
+    sort_by = request.args.get('sort_by', 'order_date')
+    sort_order = request.args.get('sort_order', 'desc')
+    
+    return jsonify(processor.get_orders_by_category(
+        category, min_price, max_price, start_date, end_date, page, limit, sort_by, sort_order
+    ))
+
+@api_bp.route('/digital-orders/by-category', methods=['GET'])
+def get_digital_orders_by_category():
+    """Get digital orders filtered by category with optional price and date filters"""
+    category = request.args.get('category', '')
+    min_price = request.args.get('min_price', type=float)
+    max_price = request.args.get('max_price', type=float)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 100))
+    sort_by = request.args.get('sort_by', 'order_date')
+    sort_order = request.args.get('sort_order', 'desc')
+    
+    return jsonify(processor.get_digital_orders_by_category(
+        category, min_price, max_price, start_date, end_date, page, limit, sort_by, sort_order
+    ))

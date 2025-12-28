@@ -484,6 +484,119 @@ class DataProcessor:
             'totalPages': (total + limit - 1) // limit
         }
     
+    def get_digital_orders_by_category(self, category, min_price=None, max_price=None, start_date=None, end_date=None, page=1, limit=100, sort_by='order_date', sort_order='desc'):
+        """Get digital orders filtered by category with price and date filters"""
+        orders = []
+        
+        with get_db() as conn:
+            cursor = conn.cursor()
+            
+            where_conditions = [
+                "our_price IS NOT NULL",
+                "our_price > 0",
+                "product_name IS NOT NULL"
+            ]
+            
+            query_params = []
+            
+            if category == 'Prime Membership':
+                where_conditions.append("LOWER(product_name) LIKE ?")
+                query_params.append('%prime%')
+            elif category == 'Paramount+':
+                where_conditions.append("(LOWER(product_name) LIKE ? OR LOWER(product_name) LIKE ?)")
+                query_params.extend(['%paramount%', '%paramount+%'])
+            elif category == 'STACK TV':
+                where_conditions.append("(LOWER(product_name) LIKE ? OR LOWER(product_name) LIKE ?)")
+                query_params.extend(['%stacktv%', '%stack tv%'])
+            elif category == 'Video Streaming':
+                where_conditions.append("(LOWER(product_name) LIKE ? OR LOWER(product_name) LIKE ?) AND LOWER(product_name) NOT LIKE ? AND LOWER(product_name) NOT LIKE ?")
+                query_params.extend(['%video%', '%streaming%', '%prime%', '%paramount%'])
+            elif category == 'Movies':
+                where_conditions.append("(LOWER(product_name) LIKE ? OR LOWER(product_name) LIKE ?)")
+                query_params.extend(['%movie%', '%film%'])
+            elif category == 'Books & eBooks':
+                where_conditions.append("(LOWER(product_name) LIKE ? OR LOWER(product_name) LIKE ?)")
+                query_params.extend(['%book%', '%kindle%'])
+            elif category == 'Music':
+                where_conditions.append("(LOWER(product_name) LIKE ? OR LOWER(product_name) LIKE ? OR LOWER(product_name) LIKE ?)")
+                query_params.extend(['%music%', '%song%', '%album%'])
+            elif category == 'Apps & Software':
+                where_conditions.append("(LOWER(product_name) LIKE ? OR LOWER(product_name) LIKE ?)")
+                query_params.extend(['%app%', '%software%'])
+            elif category == 'Games':
+                where_conditions.append("LOWER(product_name) LIKE ?")
+                query_params.append('%game%')
+            elif category == 'Other Subscriptions':
+                where_conditions.append("(subscription_order_info IS NOT NULL AND subscription_order_info != 'Not Applicable' AND LOWER(product_name) NOT LIKE ? AND LOWER(product_name) NOT LIKE ? AND LOWER(product_name) NOT LIKE ? AND LOWER(product_name) NOT LIKE ?)")
+                query_params.extend(['%prime%', '%paramount%', '%stacktv%', '%stack tv%'])
+            elif category == 'Other Digital':
+                where_conditions.append("LOWER(product_name) NOT LIKE ? AND LOWER(product_name) NOT LIKE ? AND LOWER(product_name) NOT LIKE ? AND LOWER(product_name) NOT LIKE ? AND LOWER(product_name) NOT LIKE ? AND LOWER(product_name) NOT LIKE ? AND LOWER(product_name) NOT LIKE ? AND LOWER(product_name) NOT LIKE ? AND LOWER(product_name) NOT LIKE ? AND LOWER(product_name) NOT LIKE ? AND (subscription_order_info IS NULL OR subscription_order_info = 'Not Applicable')")
+                query_params.extend(['%movie%', '%film%', '%book%', '%kindle%', '%music%', '%song%', '%album%', '%app%', '%software%', '%game%'])
+            
+            if min_price is not None:
+                where_conditions.append("our_price >= ?")
+                query_params.append(float(min_price))
+            if max_price is not None:
+                where_conditions.append("our_price <= ?")
+                query_params.append(float(max_price))
+            
+            if start_date:
+                where_conditions.append("order_date >= ?")
+                query_params.append(start_date)
+            if end_date:
+                where_conditions.append("order_date <= ?")
+                query_params.append(end_date)
+            
+            where_clause = " AND ".join(where_conditions)
+            
+            sort_column_map = {
+                'order_date': 'order_date',
+                'product_name': 'product_name',
+                'our_price': 'our_price',
+                'quantity': 'quantity_ordered',
+                'order_id': 'order_id'
+            }
+            sort_column = sort_column_map.get(sort_by, 'order_date')
+            sort_dir = 'DESC' if sort_order == 'desc' else 'ASC'
+            
+            cursor.execute(f'''
+                SELECT COUNT(*) as count
+                FROM digital_items
+                WHERE {where_clause}
+            ''', query_params)
+            total = cursor.fetchone()['count']
+            
+            offset = (page - 1) * limit
+            cursor.execute(f'''
+                SELECT 
+                    order_id, order_date, product_name, our_price as total, quantity_ordered as quantity,
+                    subscription_order_info
+                FROM digital_items
+                WHERE {where_clause}
+                ORDER BY {sort_column} {sort_dir}
+                LIMIT ? OFFSET ?
+            ''', query_params + [limit, offset])
+            
+            for row in cursor.fetchall():
+                orders.append({
+                    'orderId': row['order_id'] or '',
+                    'date': row['order_date'] or '',
+                    'productName': row['product_name'] or '',
+                    'total': float(row['total'] or 0),
+                    'quantity': row['quantity'] or 0,
+                    'status': 'Completed',
+                    'paymentMethod': 'Digital Purchase',
+                    'subscriptionInfo': row['subscription_order_info'] or '',
+                })
+        
+        return {
+            'orders': orders,
+            'total': total,
+            'page': page,
+            'limit': limit,
+            'totalPages': (total + limit - 1) // limit
+        }
+
     def get_retail_breakdown(self):
         """Get retail-specific breakdowns"""
         breakdown = {
@@ -768,3 +881,148 @@ class DataProcessor:
                 })
         
         return breakdown
+    
+    def get_orders_by_category(self, category, min_price=None, max_price=None, start_date=None, end_date=None, page=1, limit=100, sort_by='order_date', sort_order='desc'):
+        """Get orders filtered by category with price and date filters"""
+        orders = []
+        
+        # Map category to keywords
+        category_keywords = {
+            'Electronics': ['battery', 'charger', 'headphone', 'earbud', 'cable', 'wireless', 'led', 'display', 'screen', 
+                           'monitor', 'keyboard', 'mouse', 'router', 'wifi', 'ethernet', 'speaker', 'amplifier', 
+                           'kindle', 'e-reader', 'chromebook', 'laptop', 'computer', 'hard drive', 'external drive',
+                           'smart lock', 'smart home', 'security camera', 'nvr', 'camera system'],
+            'Mobile Devices': ['iphone', 'ipad', 'smartphone', 'tablet', 'apple watch', 'smartwatch', 
+                              'smart watch', 'huawei watch', 'samsung phone', 'google pixel', 'oura ring'],
+            'Photography': ['lens', 'canon ef', 'canon ef-', 'canon ef-m', 'sigma', 'photography', 
+                           'dslr', 'mirrorless', 'camcorder', 'vixia', 'powershot', 'eos', 
+                           'viewfinder', 'camera lens'],
+            'Gaming': ['playstation', 'nintendo', 'xbox', 'switch', 'ps4', 'ps5', 'wii', 'game console', 
+                      'gamepad', 'controller', 'video game', 'gaming'],
+            'Clothing': ['shirt', 'jacket', 'hoodie', 'pants', 'dress', 'shoes', 'socks', 'clothing', 'apparel',
+                        'slipper', 'boot', 'sunglasses', 'glasses', 'rain jacket', 'raincoat'],
+            'Home & Kitchen': ['cabinet', 'organizer', 'storage', 'container', 'mattress', 'bedding', 
+                              'curtain', 'drape', 'coffee maker', 'coffee brewer', 'nespresso', 
+                              'moccamaster', 'blender', 'vitamix', 'pasta maker', 'smoker', 
+                              'air conditioner', 'vacuum', 'roomba', 'dyson', 'air purifier', 
+                              'hepa', 'popcorn machine', 'aerogarden', 'chicken coop door'],
+            'Tools & Garden': ['lawn mower', 'lawn sweepr', 'string trimmer', 'chipper', 'shredder', 
+                              'fence', 'mesh', 'generator', 'tool', 'garden', 'yard', 'landscaping', 
+                              'arborist', 'utility cart', 'garden cart'],
+            'Pet Supplies': ['dog food', 'cat food', 'pet food', 'chicken feed', 'layer pellets', 'layer pellet',
+                            'mixed grains scratch', 'goat feed', 'goat snax', 'pet treat', 'bully stick', 
+                            'dog chew', 'dog treat', 'animal feed', 'feed for', 'dog chews'],
+            'Food & Groceries': ['pancake mix', 'food', 'grocery', 'ingredient', 'spice', 'seasoning'],
+            'Fitness Equipment': ['elliptical', 'treadmill', 'walking pad', 'exercise', 'fitness', 'gym',
+                                 'weights', 'yoga', 'workout', 'dumbbell'],
+            'Beauty & Personal Care': ['makeup', 'cosmetic', 'beauty', 'skincare', 'shampoo', 'soap',
+                                       'hair mask', 'hair growth', 'toothbrush', 'sonicare', 'oral-b',
+                                       'laser hair', 'jewelry polisher'],
+            'Sports & Outdoors': ['sport', 'outdoor', 'camping', 'hiking', 'tent', 'backpack', 'paddle',
+                                 'sup', 'paddleboard', 'volleyball', 'badminton', 'trampoline'],
+            'Toys & Games': ['toy', 'game', 'lego', 'puzzle', 'board game', 'building kit', 'playset'],
+            'Health & Wellness': ['vitamin', 'supplement', 'health', 'wellness', 'fitness', 'electrolyte',
+                                 'multivitamin', 'gummy vitamin', 'dna test', '23andme', 'protein'],
+            'Baby & Kids': ['car seat', 'booster seat', 'booster', 'baby', 'infant', 'toddler', 'stroller', 'diaper'],
+            'Automotive': ['truck', 'vehicle', 'automotive', 'auto tire', 'auto oil', 'car tire', 'car oil'],
+            'Services': ['hire', 'service', 'arborist']
+        }
+        
+        keywords = category_keywords.get(category, [])
+        
+        with get_db() as conn:
+            cursor = conn.cursor()
+            
+            # Build WHERE clause
+            where_conditions = [
+                "order_status != 'Cancelled'",
+                "total_owed IS NOT NULL",
+                "total_owed > 0",
+                "product_name IS NOT NULL"
+            ]
+            
+            # Category filter - build LIKE conditions for keywords
+            query_params = []
+            if keywords:
+                # Build parameterized query for keywords
+                keyword_placeholders = " OR ".join([f"LOWER(product_name) LIKE ?" for _ in keywords])
+                where_conditions.append(f"({keyword_placeholders})")
+                query_params.extend([f"%{keyword}%" for keyword in keywords])
+            elif category == 'Other':
+                # For "Other", exclude all known categories
+                all_keywords = []
+                for cats in category_keywords.values():
+                    all_keywords.extend(cats)
+                keyword_placeholders = " AND ".join([f"LOWER(product_name) NOT LIKE ?" for _ in all_keywords])
+                where_conditions.append(f"({keyword_placeholders})")
+                query_params.extend([f"%{keyword}%" for keyword in all_keywords])
+            
+            # Price filters
+            if min_price is not None:
+                where_conditions.append("total_owed >= ?")
+                query_params.append(float(min_price))
+            if max_price is not None:
+                where_conditions.append("total_owed <= ?")
+                query_params.append(float(max_price))
+            
+            # Date filters
+            if start_date:
+                where_conditions.append("order_date >= ?")
+                query_params.append(start_date)
+            if end_date:
+                where_conditions.append("order_date <= ?")
+                query_params.append(end_date)
+            
+            where_clause = " AND ".join(where_conditions)
+            
+            # Sort column mapping
+            sort_column_map = {
+                'order_date': 'order_date',
+                'product_name': 'product_name',
+                'total_owed': 'total_owed',
+                'quantity': 'quantity',
+                'order_id': 'order_id'
+            }
+            sort_column = sort_column_map.get(sort_by, 'order_date')
+            sort_dir = 'DESC' if sort_order == 'desc' else 'ASC'
+            
+            # Get total count
+            cursor.execute(f'''
+                SELECT COUNT(*) as count
+                FROM retail_orders
+                WHERE {where_clause}
+            ''', query_params)
+            total = cursor.fetchone()['count']
+            
+            # Get paginated orders
+            offset = (page - 1) * limit
+            # Note: sort_column and sort_dir are safe because they're validated against a whitelist
+            cursor.execute(f'''
+                SELECT 
+                    order_id, order_date, product_name, total_owed, quantity,
+                    order_status, payment_instrument_type, asin
+                FROM retail_orders
+                WHERE {where_clause}
+                ORDER BY {sort_column} {sort_dir}
+                LIMIT ? OFFSET ?
+            ''', query_params + [limit, offset])
+            
+            for row in cursor.fetchall():
+                orders.append({
+                    'orderId': row['order_id'] or '',
+                    'date': row['order_date'] or '',
+                    'productName': row['product_name'] or '',
+                    'total': float(row['total_owed'] or 0),
+                    'quantity': row['quantity'] or 0,
+                    'status': row['order_status'] or '',
+                    'paymentMethod': row['payment_instrument_type'] or '',
+                    'asin': row['asin'] or '',
+                })
+        
+        return {
+            'orders': orders,
+            'total': total,
+            'page': page,
+            'limit': limit,
+            'totalPages': (total + limit - 1) // limit
+        }

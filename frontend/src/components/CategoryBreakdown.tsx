@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { getCategories, Category } from '../api';
+import CategoryOrderTable from './CategoryOrderTable';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
 
 const CategoryBreakdown: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -65,7 +67,11 @@ const CategoryBreakdown: React.FC = () => {
           const total = categories.reduce((sum, c) => sum + c.spending, 0);
           const percent = total > 0 ? (cat.spending / total) * 100 : 0;
           return (
-            <div key={cat.name} className="flex justify-between items-center bg-gray-50 p-3 rounded">
+            <div
+              key={cat.name}
+              onClick={() => setSelectedCategory(cat.name)}
+              className="flex justify-between items-center bg-gray-50 p-3 rounded cursor-pointer hover:bg-blue-50 hover:border-2 hover:border-blue-300 transition-all"
+            >
               <div className="flex items-center flex-1">
                 <div 
                   className="w-4 h-4 rounded mr-3 flex-shrink-0" 
@@ -83,6 +89,13 @@ const CategoryBreakdown: React.FC = () => {
           );
         })}
       </div>
+
+      {selectedCategory && (
+        <CategoryOrderTable
+          category={selectedCategory}
+          onClose={() => setSelectedCategory(null)}
+        />
+      )}
     </div>
   );
 };

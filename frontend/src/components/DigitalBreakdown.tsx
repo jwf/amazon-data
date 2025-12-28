@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getDigitalBreakdown, DigitalBreakdown } from '../api';
+import DigitalOrderTable from './DigitalOrderTable';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
 
 const DigitalBreakdownComponent: React.FC = () => {
   const [data, setData] = useState<DigitalBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -81,7 +83,11 @@ const DigitalBreakdownComponent: React.FC = () => {
               const total = data.categories.reduce((sum, c) => sum + c.spending, 0);
               const percent = total > 0 ? (cat.spending / total) * 100 : 0;
               return (
-                <div key={cat.name} className="flex justify-between items-center bg-gray-50 p-2 rounded text-xs">
+                <div
+                  key={cat.name}
+                  onClick={() => setSelectedCategory(cat.name)}
+                  className="flex justify-between items-center bg-gray-50 p-2 rounded text-xs cursor-pointer hover:bg-blue-50 hover:border-2 hover:border-blue-300 transition-all"
+                >
                   <div className="flex items-center flex-1 min-w-0">
                     <div 
                       className="w-3 h-3 rounded mr-2 flex-shrink-0" 
@@ -97,6 +103,12 @@ const DigitalBreakdownComponent: React.FC = () => {
               );
             })}
           </div>
+          {selectedCategory && (
+            <DigitalOrderTable
+              category={selectedCategory}
+              onClose={() => setSelectedCategory(null)}
+            />
+          )}
         </div>
 
         {/* Spending Over Time */}
