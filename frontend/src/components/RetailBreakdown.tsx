@@ -49,14 +49,13 @@ const RetailBreakdownComponent: React.FC = () => {
         {/* Categories */}
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Categories</h3>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={400}>
             <PieChart>
               <Pie
                 data={categoryChartData}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
                 outerRadius={100}
                 fill="#8884d8"
                 dataKey="value"
@@ -66,11 +65,38 @@ const RetailBreakdownComponent: React.FC = () => {
                 ))}
               </Pie>
               <Tooltip 
-                formatter={(value: number | undefined) => value ? `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
+                formatter={(value: number | undefined, name?: string) => [
+                  value ? `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '',
+                  name || ''
+                ]}
               />
-              <Legend />
+              <Legend 
+                wrapperStyle={{ paddingTop: '20px' }}
+                iconType="circle"
+              />
             </PieChart>
           </ResponsiveContainer>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+            {data.categories.slice(0, 10).map((cat, index) => {
+              const total = data.categories.reduce((sum, c) => sum + c.spending, 0);
+              const percent = total > 0 ? (cat.spending / total) * 100 : 0;
+              return (
+                <div key={cat.name} className="flex justify-between items-center bg-gray-50 p-2 rounded text-xs">
+                  <div className="flex items-center flex-1 min-w-0">
+                    <div 
+                      className="w-3 h-3 rounded mr-2 flex-shrink-0" 
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                    />
+                    <span className="text-gray-900 font-medium truncate">{cat.name}</span>
+                    <span className="text-gray-500 ml-2">{percent.toFixed(1)}%</span>
+                  </div>
+                  <span className="text-gray-900 font-semibold ml-2">
+                    ${cat.spending.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Spending Over Time */}

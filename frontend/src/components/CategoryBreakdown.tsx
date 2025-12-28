@@ -39,14 +39,13 @@ const CategoryBreakdown: React.FC = () => {
   return (
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-4">Spending by Category</h2>
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={400}>
         <PieChart>
           <Pie
             data={chartData}
             cx="50%"
             cy="50%"
             labelLine={false}
-            label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
             outerRadius={100}
             fill="#8884d8"
             dataKey="value"
@@ -61,21 +60,28 @@ const CategoryBreakdown: React.FC = () => {
           <Legend />
         </PieChart>
       </ResponsiveContainer>
-      <div className="mt-4 space-y-2">
-        {categories.map((cat, index) => (
-          <div key={cat.name} className="flex justify-between items-center">
-            <div className="flex items-center">
-              <div 
-                className="w-4 h-4 rounded mr-2" 
-                style={{ backgroundColor: COLORS[index % COLORS.length] }}
-              />
-              <span className="text-sm text-gray-700">{cat.name}</span>
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        {categories.map((cat, index) => {
+          const total = categories.reduce((sum, c) => sum + c.spending, 0);
+          const percent = total > 0 ? (cat.spending / total) * 100 : 0;
+          return (
+            <div key={cat.name} className="flex justify-between items-center bg-gray-50 p-3 rounded">
+              <div className="flex items-center flex-1">
+                <div 
+                  className="w-4 h-4 rounded mr-3 flex-shrink-0" 
+                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-gray-900 block truncate">{cat.name}</span>
+                  <span className="text-xs text-gray-500">{percent.toFixed(1)}%</span>
+                </div>
+              </div>
+              <span className="text-sm font-semibold text-gray-900 ml-4">
+                ${cat.spending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
             </div>
-            <span className="text-sm font-semibold text-gray-900">
-              ${cat.spending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
