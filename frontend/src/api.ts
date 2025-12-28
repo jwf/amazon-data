@@ -39,16 +39,17 @@ export interface SpendingOverTime {
   orderCounts: number[];
 }
 
+// Category and TopProduct are used in breakdown interfaces
+export interface Category {
+  name: string;
+  spending: number;
+}
+
 export interface TopProduct {
   name: string;
   quantity: number;
   spending: number;
   orders: number;
-}
-
-export interface Category {
-  name: string;
-  spending: number;
 }
 
 export interface PaymentMethod {
@@ -74,21 +75,6 @@ export const getSummary = async (): Promise<SummaryStats> => {
 
 export const getSpendingOverTime = async (period: 'monthly' | 'yearly'): Promise<SpendingOverTime> => {
   const response = await api.get('/stats/spending-over-time', { params: { period } });
-  return response.data;
-};
-
-export const getTopProducts = async (limit: number = 20, by: 'quantity' | 'spending' = 'quantity'): Promise<{ products: TopProduct[] }> => {
-  const response = await api.get('/stats/top-products', { params: { limit, by } });
-  return response.data;
-};
-
-export const getCategories = async (): Promise<{ categories: Category[] }> => {
-  const response = await api.get('/stats/categories');
-  return response.data;
-};
-
-export const getPaymentMethods = async (): Promise<{ paymentMethods: PaymentMethod[] }> => {
-  const response = await api.get('/stats/payment-methods');
   return response.data;
 };
 

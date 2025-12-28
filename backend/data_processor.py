@@ -1,5 +1,4 @@
 from database import get_db
-from datetime import datetime
 from collections import defaultdict
 
 class DataProcessor:
@@ -176,7 +175,6 @@ class DataProcessor:
         
         return result
     
-    def get_top_products(self, limit=20, by='quantity'):
         """Get top products by quantity or spending"""
         products = []
         
@@ -225,128 +223,6 @@ class DataProcessor:
                 })
         
         return {'products': products}
-    
-    def get_category_breakdown(self):
-        """Attempt to categorize products (keyword matching)"""
-        categories = defaultdict(float)
-        
-        category_keywords = {
-            'Electronics': ['battery', 'charger', 'headphone', 'earbud', 'cable', 'wireless', 'led', 'display', 'screen', 
-                           'monitor', 'keyboard', 'mouse', 'router', 'wifi', 'ethernet', 'speaker', 'amplifier', 
-                           'kindle', 'e-reader', 'chromebook', 'laptop', 'computer', 'hard drive', 'external drive',
-                           'smart lock', 'smart home', 'security camera', 'nvr', 'camera system'],
-            'Mobile Devices': ['iphone', 'ipad', 'smartphone', 'tablet', 'apple watch', 'smartwatch', 
-                              'smart watch', 'huawei watch', 'samsung phone', 'google pixel', 'oura ring'],
-            'Photography': ['lens', 'canon ef', 'canon ef-', 'canon ef-m', 'sigma', 'photography', 
-                           'dslr', 'mirrorless', 'camcorder', 'vixia', 'powershot', 'eos', 
-                           'viewfinder', 'camera lens'],
-            'Gaming': ['playstation', 'nintendo', 'xbox', 'switch', 'ps4', 'ps5', 'wii', 'game console', 
-                      'gamepad', 'controller', 'video game', 'gaming'],
-            'Clothing': ['shirt', 'jacket', 'hoodie', 'pants', 'dress', 'shoes', 'socks', 'clothing', 'apparel',
-                        'slipper', 'boot', 'sunglasses', 'glasses', 'rain jacket', 'raincoat'],
-            'Home & Kitchen': ['cabinet', 'organizer', 'storage', 'container', 'mattress', 'bedding', 
-                              'curtain', 'drape', 'coffee maker', 'coffee brewer', 'nespresso', 
-                              'moccamaster', 'blender', 'vitamix', 'pasta maker', 'smoker', 
-                              'air conditioner', 'vacuum', 'roomba', 'dyson', 'air purifier', 
-                              'hepa', 'popcorn machine', 'aerogarden', 'chicken coop door'],
-            'Tools & Garden': ['lawn mower', 'lawn sweepr', 'string trimmer', 'chipper', 'shredder', 
-                              'fence', 'mesh', 'generator', 'tool', 'garden', 'yard', 'landscaping', 
-                              'arborist', 'utility cart', 'garden cart'],
-            'Pet Supplies': ['dog food', 'cat food', 'pet food', 'chicken feed', 'layer pellets', 'layer pellet',
-                            'mixed grains scratch', 'goat feed', 'goat snax', 'pet treat', 'bully stick', 
-                            'dog chew', 'dog treat', 'animal feed', 'feed for', 'dog chews'],
-            'Food & Groceries': ['pancake mix', 'food', 'grocery', 'ingredient', 'spice', 'seasoning'],
-            'Fitness Equipment': ['elliptical', 'treadmill', 'walking pad', 'exercise', 'fitness', 'gym',
-                                 'weights', 'yoga', 'workout', 'dumbbell'],
-            'Books & Media': ['book', 'dvd', 'cd', 'movie', 'music'],
-            'Beauty & Personal Care': ['makeup', 'cosmetic', 'beauty', 'skincare', 'shampoo', 'soap',
-                                       'hair mask', 'hair growth', 'toothbrush', 'sonicare', 'oral-b',
-                                       'laser hair', 'jewelry polisher'],
-            'Sports & Outdoors': ['sport', 'outdoor', 'camping', 'hiking', 'tent', 'backpack', 'paddle',
-                                 'sup', 'paddleboard', 'volleyball', 'badminton', 'trampoline'],
-            'Toys & Games': ['toy', 'game', 'lego', 'puzzle', 'board game', 'building kit', 'playset'],
-            'Health & Wellness': ['vitamin', 'supplement', 'health', 'wellness', 'fitness', 'electrolyte',
-                                 'multivitamin', 'gummy vitamin', 'dna test', '23andme', 'protein'],
-            'Baby & Kids': ['car seat', 'booster seat', 'booster', 'baby', 'infant', 'toddler', 'stroller', 'diaper'],
-            'Automotive': ['truck', 'vehicle', 'automotive', 'auto tire', 'auto oil', 'car tire', 'car oil'],
-            'Services': ['hire', 'service', 'arborist']
-        }
-        
-        with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT product_name, SUM(total_owed) as spending
-                FROM retail_orders
-                WHERE order_status != 'Cancelled'
-                  AND total_owed IS NOT NULL
-                  AND total_owed > 0
-                  AND product_name IS NOT NULL
-                GROUP BY product_name
-            ''')
-            
-            # Order categories by specificity (more specific first)
-            category_order = [
-                'Baby & Kids', 'Pet Supplies', 'Mobile Devices', 'Photography', 'Gaming', 
-                'Fitness Equipment', 'Tools & Garden', 'Food & Groceries', 'Services', 'Automotive',
-                'Electronics', 'Home & Kitchen', 'Clothing', 'Beauty & Personal Care',
-                'Sports & Outdoors', 'Toys & Games', 'Health & Wellness', 'Books & Media'
-            ]
-            
-            for row in cursor.fetchall():
-                product_name = (row['product_name'] or '').lower()
-                category_found = False
-                
-                # Check categories in order of specificity
-                for category in category_order:
-                    if category in category_keywords:
-                        keywords = category_keywords[category]
-                        if any(keyword in product_name for keyword in keywords):
-                            categories[category] += float(row['spending'] or 0)
-                            category_found = True
-                            break
-                
-                # Check remaining categories not in the ordered list
-                if not category_found:
-                    for category, keywords in category_keywords.items():
-                        if category not in category_order:
-                            if any(keyword in product_name for keyword in keywords):
-                                categories[category] += float(row['spending'] or 0)
-                                category_found = True
-                                break
-                
-                if not category_found:
-                    categories['Other'] += float(row['spending'] or 0)
-        
-        return {
-            'categories': [{'name': k, 'spending': v} for k, v in sorted(categories.items(), key=lambda x: x[1], reverse=True)]
-        }
-    
-    def get_payment_method_breakdown(self):
-        """Get spending by payment method"""
-        payment_methods = []
-        
-        with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT 
-                    payment_instrument_type as method,
-                    SUM(total_owed) as spending
-                FROM retail_orders
-                WHERE order_status != 'Cancelled'
-                  AND total_owed IS NOT NULL
-                  AND total_owed > 0
-                  AND payment_instrument_type IS NOT NULL
-                GROUP BY payment_instrument_type
-                ORDER BY spending DESC
-            ''')
-            
-            for row in cursor.fetchall():
-                payment_methods.append({
-                    'method': row['method'] or 'Unknown',
-                    'spending': float(row['spending'] or 0)
-                })
-        
-        return {'paymentMethods': payment_methods}
     
     def get_return_stats(self):
         """Get return statistics"""
@@ -436,53 +312,6 @@ class DataProcessor:
                 comparison['digital']['spending'] = float(row['spending'] or 0)
         
         return comparison
-    
-    def get_orders(self, page=1, limit=50):
-        """Get paginated order list"""
-        orders = []
-        
-        offset = (page - 1) * limit
-        
-        with get_db() as conn:
-            cursor = conn.cursor()
-            
-            # Get total count
-            cursor.execute('''
-                SELECT COUNT(*) as count
-                FROM retail_orders
-                WHERE order_status != 'Cancelled'
-                  AND total_owed IS NOT NULL
-            ''')
-            total = cursor.fetchone()['count']
-            
-            # Get paginated orders
-            cursor.execute('''
-                SELECT 
-                    order_id, order_date, product_name, total_owed, order_status
-                FROM retail_orders
-                WHERE order_status != 'Cancelled'
-                  AND total_owed IS NOT NULL
-                ORDER BY order_date DESC
-                LIMIT ? OFFSET ?
-            ''', (limit, offset))
-            
-            for row in cursor.fetchall():
-                orders.append({
-                    'orderId': row['order_id'] or '',
-                    'date': row['order_date'] or '',
-                    'productName': row['product_name'] or '',
-                    'total': float(row['total_owed'] or 0),
-                    'status': row['order_status'] or '',
-                    'type': 'retail'
-                })
-        
-        return {
-            'orders': orders,
-            'total': total,
-            'page': page,
-            'limit': limit,
-            'totalPages': (total + limit - 1) // limit
-        }
     
     def get_digital_orders_by_category(self, category, min_price=None, max_price=None, start_date=None, end_date=None, page=1, limit=100, sort_by='order_date', sort_order='desc'):
         """Get digital orders filtered by category with price and date filters"""
