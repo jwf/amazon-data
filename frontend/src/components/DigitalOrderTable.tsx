@@ -50,8 +50,14 @@ const DigitalOrderTable: React.FC<DigitalOrderTableProps> = ({ category, onClose
 
   useEffect(() => {
     loadOrders();
+  }, [category, page, sortBy, sortOrder]);
+
+  useEffect(() => {
+    // Reset to page 1 when filters change
+    setPage(1);
+    loadOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, page, sortBy, sortOrder, minPrice, maxPrice, startDate, endDate]);
+  }, [minPrice, maxPrice, startDate, endDate]);
 
   const handleSort = (column: SortColumn) => {
     if (sortBy === column) {
