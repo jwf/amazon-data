@@ -6,9 +6,13 @@ import os
 backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
-from data_processor import DataProcessor
+from data_processor import DataProcessor, MAX_PAGE_LIMIT
 
 processor = DataProcessor()
+
+@api_bp.errorhandler(Exception)
+def handle_error(e):
+    return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/health', methods=['GET'])
 def health():
@@ -53,11 +57,11 @@ def get_orders_by_category():
     max_price = request.args.get('max_price', type=float)
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
-    page = int(request.args.get('page', 1))
-    limit = int(request.args.get('limit', 100))
+    page = max(1, int(request.args.get('page', 1)))
+    limit = min(max(1, int(request.args.get('limit', 100))), MAX_PAGE_LIMIT)
     sort_by = request.args.get('sort_by', 'order_date')
     sort_order = request.args.get('sort_order', 'desc')
-    
+
     return jsonify(processor.get_orders_by_category(
         category, min_price, max_price, start_date, end_date, page, limit, sort_by, sort_order
     ))
@@ -70,11 +74,11 @@ def get_digital_orders_by_category():
     max_price = request.args.get('max_price', type=float)
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
-    page = int(request.args.get('page', 1))
-    limit = int(request.args.get('limit', 100))
+    page = max(1, int(request.args.get('page', 1)))
+    limit = min(max(1, int(request.args.get('limit', 100))), MAX_PAGE_LIMIT)
     sort_by = request.args.get('sort_by', 'order_date')
     sort_order = request.args.get('sort_order', 'desc')
-    
+
     return jsonify(processor.get_digital_orders_by_category(
         category, min_price, max_price, start_date, end_date, page, limit, sort_by, sort_order
     ))

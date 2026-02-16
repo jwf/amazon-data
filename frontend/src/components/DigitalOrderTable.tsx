@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getDigitalOrdersByCategory, Order } from '../api';
 
 interface DigitalOrderTableProps {
@@ -12,20 +12,22 @@ type SortOrder = 'asc' | 'desc';
 const DigitalOrderTable: React.FC<DigitalOrderTableProps> = ({ category, onClose }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [sortBy, setSortBy] = useState<SortColumn>('order_date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
-  
+
   // Filters
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const result = await getDigitalOrdersByCategory(
         category,
@@ -41,23 +43,24 @@ const DigitalOrderTable: React.FC<DigitalOrderTableProps> = ({ category, onClose
       setOrders(result.orders);
       setTotalPages(result.totalPages);
       setTotal(result.total);
-    } catch (error) {
-      console.error('Error loading digital orders:', error);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load orders');
     } finally {
       setLoading(false);
     }
-  };
+  }, [category, page, sortBy, sortOrder, minPrice, maxPrice, startDate, endDate]);
 
   useEffect(() => {
     loadOrders();
-  }, [category, page, sortBy, sortOrder]);
+  }, [loadOrders]);
 
   useEffect(() => {
-    // Reset to page 1 when filters change
-    setPage(1);
-    loadOrders();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [minPrice, maxPrice, startDate, endDate]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const handleSort = (column: SortColumn) => {
     if (sortBy === column) {
@@ -67,11 +70,6 @@ const DigitalOrderTable: React.FC<DigitalOrderTableProps> = ({ category, onClose
       setSortOrder('desc');
     }
     setPage(1);
-  };
-
-  const handleFilter = () => {
-    setPage(1);
-    // loadOrders will be called by useEffect
   };
 
   const clearFilters = () => {
@@ -90,11 +88,11 @@ const DigitalOrderTable: React.FC<DigitalOrderTableProps> = ({ category, onClose
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
         onClick={onClose}
       />
-      
+
       {/* Modal */}
       <div className="relative min-h-full flex items-center justify-center p-4">
         <div className="relative bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[95vh] flex flex-col">
@@ -113,7 +111,7 @@ const DigitalOrderTable: React.FC<DigitalOrderTableProps> = ({ category, onClose
               </svg>
             </button>
           </div>
-          
+
           {/* Content - scrollable */}
           <div className="flex-1 overflow-y-auto p-6">
       {/* Filters */}
@@ -123,7 +121,7 @@ const DigitalOrderTable: React.FC<DigitalOrderTableProps> = ({ category, onClose
           <input
             type="number"
             value={minPrice}
-            onChange={(e) => setMinPrice(e.target.value)}
+            onChange={(e) => { setMinPrice(e.target.value); setPage(1); }}
             placeholder="e.g. 5"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
           />
@@ -133,7 +131,7 @@ const DigitalOrderTable: React.FC<DigitalOrderTableProps> = ({ category, onClose
           <input
             type="number"
             value={maxPrice}
-            onChange={(e) => setMaxPrice(e.target.value)}
+            onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
             placeholder="e.g. 50"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
           />
@@ -143,7 +141,7 @@ const DigitalOrderTable: React.FC<DigitalOrderTableProps> = ({ category, onClose
           <input
             type="date"
             value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
+            onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
@@ -152,17 +150,11 @@ const DigitalOrderTable: React.FC<DigitalOrderTableProps> = ({ category, onClose
           <input
             type="date"
             value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
+            onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
         <div className="md:col-span-4 flex gap-2">
-          <button
-            onClick={handleFilter}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-          >
-            Apply Filters
-          </button>
           <button
             onClick={clearFilters}
             className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 font-medium"
@@ -172,7 +164,9 @@ const DigitalOrderTable: React.FC<DigitalOrderTableProps> = ({ category, onClose
         </div>
       </div>
 
-      {loading ? (
+      {error ? (
+        <div className="text-center py-8 text-red-500">{error}</div>
+      ) : loading ? (
         <div className="text-center py-8 text-gray-500">Loading orders...</div>
       ) : (
         <>
@@ -222,8 +216,8 @@ const DigitalOrderTable: React.FC<DigitalOrderTableProps> = ({ category, onClose
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {orders.map((order, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
+                {orders.map((order) => (
+                  <tr key={`${order.orderId}-${order.productName}`} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {order.date ? new Date(order.date).toLocaleDateString() : ''}
                     </td>

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { getSummary, SummaryStats } from './api';
+import { useApiData } from './hooks/useApiData';
 import SummaryCard from './components/SummaryCard';
 import SpendingOverTimeChart from './components/SpendingOverTimeChart';
 import ReturnStatsCard from './components/ReturnStatsCard';
@@ -8,27 +9,23 @@ import RetailBreakdown from './components/RetailBreakdown';
 import DigitalBreakdown from './components/DigitalBreakdown';
 
 function App() {
-  const [summary, setSummary] = useState<SummaryStats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadSummary = async () => {
-      try {
-        const data = await getSummary();
-        setSummary(data);
-      } catch (error) {
-        console.error('Error loading summary:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadSummary();
-  }, []);
+  const { data: summary, loading, error } = useApiData<SummaryStats>(getSummary);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-xl text-gray-600">Loading your Amazon data...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-xl text-red-600 mb-2">Failed to load data</div>
+          <div className="text-sm text-gray-500">{error}</div>
+        </div>
       </div>
     );
   }

@@ -1,28 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getReturns, ReturnStats } from '../api';
+import { useApiData } from '../hooks/useApiData';
 
 const ReturnStatsCard: React.FC = () => {
-  const [stats, setStats] = useState<ReturnStats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const result = await getReturns();
-        setStats(result);
-      } catch (error) {
-        console.error('Error loading return stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+  const { data: stats, loading, error } = useApiData<ReturnStats>(getReturns);
 
   if (loading) {
     return <div className="text-center py-8 text-gray-500">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-500">Failed to load return statistics</div>;
   }
 
   if (!stats) {
@@ -53,8 +42,8 @@ const ReturnStatsCard: React.FC = () => {
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="period" 
+              <XAxis
+                dataKey="period"
                 angle={-45}
                 textAnchor="end"
                 height={80}
@@ -63,10 +52,10 @@ const ReturnStatsCard: React.FC = () => {
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
               <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="returns" 
-                stroke="#EF4444" 
+              <Line
+                type="monotone"
+                dataKey="returns"
+                stroke="#EF4444"
                 strokeWidth={2}
                 name="Returns"
                 dot={{ r: 3 }}

@@ -1,29 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getSpendingOverTime, SpendingOverTime } from '../api';
+import { useApiData } from '../hooks/useApiData';
 
 const SpendingOverTimeChart: React.FC = () => {
-  const [data, setData] = useState<SpendingOverTime | null>(null);
   const [period, setPeriod] = useState<'monthly' | 'yearly'>('monthly');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const result = await getSpendingOverTime(period);
-        setData(result);
-      } catch (error) {
-        console.error('Error loading spending over time:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, [period]);
+  const { data, loading, error } = useApiData<SpendingOverTime>(
+    () => getSpendingOverTime(period),
+    [period]
+  );
 
   if (loading) {
     return <div className="text-center py-8 text-gray-500">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-500">Failed to load spending data</div>;
   }
 
   if (!data || data.labels.length === 0) {
@@ -66,25 +58,25 @@ const SpendingOverTimeChart: React.FC = () => {
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis 
-            dataKey="period" 
+          <XAxis
+            dataKey="period"
             angle={-45}
             textAnchor="end"
             height={80}
             tick={{ fontSize: 12 }}
           />
-          <YAxis 
+          <YAxis
             tickFormatter={(value) => `$${value.toLocaleString()}`}
             tick={{ fontSize: 12 }}
           />
-          <Tooltip 
+          <Tooltip
             formatter={(value: number | undefined) => value ? `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
           />
           <Legend />
-          <Line 
-            type="monotone" 
-            dataKey="spending" 
-            stroke="#3B82F6" 
+          <Line
+            type="monotone"
+            dataKey="spending"
+            stroke="#3B82F6"
             strokeWidth={2}
             name="Spending"
             dot={{ r: 3 }}

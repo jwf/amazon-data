@@ -42,6 +42,7 @@ def import_retail_orders(data_dir):
         cursor.execute('DELETE FROM retail_orders')
         
         imported = 0
+        failed = 0
         for _, row in df.iterrows():
             try:
                 cursor.execute('''
@@ -89,11 +90,12 @@ def import_retail_orders(data_dir):
                     conn.commit()
                     print(f"Imported {imported} retail orders...")
             except Exception as e:
+                failed += 1
                 print(f"Error importing row: {e}")
                 continue
-        
+
         conn.commit()
-        print(f"Successfully imported {imported} retail orders")
+        print(f"Successfully imported {imported} retail orders ({failed} failed)")
         return imported
 
 def import_digital_items(data_dir):
@@ -113,6 +115,7 @@ def import_digital_items(data_dir):
         cursor.execute('DELETE FROM digital_items')
         
         imported = 0
+        failed = 0
         for _, row in df.iterrows():
             try:
                 cursor.execute('''
@@ -141,11 +144,12 @@ def import_digital_items(data_dir):
                     conn.commit()
                     print(f"Imported {imported} digital items...")
             except Exception as e:
+                failed += 1
                 print(f"Error importing row: {e}")
                 continue
-        
+
         conn.commit()
-        print(f"Successfully imported {imported} digital items")
+        print(f"Successfully imported {imported} digital items ({failed} failed)")
         return imported
 
 def import_returns(data_dir):
@@ -165,6 +169,7 @@ def import_returns(data_dir):
         cursor.execute('DELETE FROM returns')
         
         imported = 0
+        failed = 0
         for _, row in df.iterrows():
             try:
                 cursor.execute('''
@@ -182,11 +187,12 @@ def import_returns(data_dir):
                 ))
                 imported += 1
             except Exception as e:
+                failed += 1
                 print(f"Error importing row: {e}")
                 continue
-        
+
         conn.commit()
-        print(f"Successfully imported {imported} returns")
+        print(f"Successfully imported {imported} returns ({failed} failed)")
         return imported
 
 def import_cart_items(data_dir):
@@ -206,6 +212,7 @@ def import_cart_items(data_dir):
         cursor.execute('DELETE FROM cart_items')
         
         imported = 0
+        failed = 0
         for _, row in df.iterrows():
             try:
                 cursor.execute('''
@@ -230,11 +237,12 @@ def import_cart_items(data_dir):
                 ))
                 imported += 1
             except Exception as e:
+                failed += 1
                 print(f"Error importing row: {e}")
                 continue
-        
+
         conn.commit()
-        print(f"Successfully imported {imported} cart items")
+        print(f"Successfully imported {imported} cart items ({failed} failed)")
         return imported
 
 def main():

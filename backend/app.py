@@ -25,7 +25,9 @@ if __name__ == '__main__':
         print(f"  - Local: http://localhost:5001")
         print(f"  - Network: http://192.168.86.41:5001 (or your machine's IP)")
         print("\nStarting server...\n")
-        app.run(debug=True, port=5001, host='0.0.0.0')
+        debug = os.environ.get('FLASK_DEBUG', '1') == '1'
+        port = int(os.environ.get('PORT', 5001))
+        app.run(debug=debug, port=port, host='0.0.0.0')
     except OSError as e:
         if 'Address already in use' in str(e) or e.errno == 48:
             print(f"\n❌ ERROR: Port 5001 is already in use!")

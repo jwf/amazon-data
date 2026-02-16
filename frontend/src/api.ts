@@ -148,12 +148,12 @@ export const getOrdersByCategory = async (
   sortBy: string = 'order_date',
   sortOrder: 'asc' | 'desc' = 'desc'
 ): Promise<OrdersByCategory> => {
-  const params: any = { category, page, limit, sort_by: sortBy, sort_order: sortOrder };
+  const params: Record<string, string | number> = { category, page, limit, sort_by: sortBy, sort_order: sortOrder };
   if (minPrice !== undefined) params.min_price = minPrice;
   if (maxPrice !== undefined) params.max_price = maxPrice;
   if (startDate) params.start_date = startDate;
   if (endDate) params.end_date = endDate;
-  
+
   const response = await api.get('/orders/by-category', { params });
   return response.data;
 };
@@ -169,12 +169,12 @@ export const getDigitalOrdersByCategory = async (
   sortBy: string = 'order_date',
   sortOrder: 'asc' | 'desc' = 'desc'
 ): Promise<OrdersByCategory> => {
-  const params: any = { category, page, limit, sort_by: sortBy, sort_order: sortOrder };
+  const params: Record<string, string | number> = { category, page, limit, sort_by: sortBy, sort_order: sortOrder };
   if (minPrice !== undefined) params.min_price = minPrice;
   if (maxPrice !== undefined) params.max_price = maxPrice;
   if (startDate) params.start_date = startDate;
   if (endDate) params.end_date = endDate;
-  
+
   const response = await api.get('/digital-orders/by-category', { params });
   return response.data;
 };

@@ -1,9 +1,59 @@
 from database import get_db
 from collections import defaultdict
 
+RETAIL_CATEGORY_KEYWORDS = {
+    'Electronics': ['battery', 'charger', 'headphone', 'earbud', 'cable', 'wireless', 'led', 'display', 'screen',
+                   'monitor', 'keyboard', 'mouse', 'router', 'wifi', 'ethernet', 'speaker', 'amplifier',
+                   'kindle', 'e-reader', 'chromebook', 'laptop', 'computer', 'hard drive', 'external drive',
+                   'smart lock', 'smart home', 'security camera', 'nvr', 'camera system'],
+    'Mobile Devices': ['iphone', 'ipad', 'smartphone', 'tablet', 'apple watch', 'smartwatch',
+                      'smart watch', 'huawei watch', 'samsung phone', 'google pixel', 'oura ring'],
+    'Photography': ['lens', 'canon ef', 'canon ef-', 'canon ef-m', 'sigma', 'photography',
+                   'dslr', 'mirrorless', 'camcorder', 'vixia', 'powershot', 'eos',
+                   'viewfinder', 'camera lens'],
+    'Gaming': ['playstation', 'nintendo', 'xbox', 'switch', 'ps4', 'ps5', 'wii', 'game console',
+              'gamepad', 'controller', 'video game', 'gaming'],
+    'Clothing': ['shirt', 'jacket', 'hoodie', 'pants', 'dress', 'shoes', 'socks', 'clothing', 'apparel',
+                'slipper', 'boot', 'sunglasses', 'glasses', 'rain jacket', 'raincoat'],
+    'Home & Kitchen': ['cabinet', 'organizer', 'storage', 'container', 'mattress', 'bedding',
+                      'curtain', 'drape', 'coffee maker', 'coffee brewer', 'nespresso',
+                      'moccamaster', 'blender', 'vitamix', 'pasta maker', 'smoker',
+                      'air conditioner', 'vacuum', 'roomba', 'dyson', 'air purifier',
+                      'hepa', 'popcorn machine', 'aerogarden', 'chicken coop door'],
+    'Tools & Garden': ['lawn mower', 'lawn sweepr', 'string trimmer', 'chipper', 'shredder',
+                      'fence', 'mesh', 'generator', 'tool', 'garden', 'yard', 'landscaping',
+                      'arborist', 'utility cart', 'garden cart'],
+    'Pet Supplies': ['dog food', 'cat food', 'pet food', 'chicken feed', 'layer pellets', 'layer pellet',
+                    'mixed grains scratch', 'goat feed', 'goat snax', 'pet treat', 'bully stick',
+                    'dog chew', 'dog treat', 'animal feed', 'feed for', 'dog chews'],
+    'Food & Groceries': ['pancake mix', 'food', 'grocery', 'ingredient', 'spice', 'seasoning'],
+    'Fitness Equipment': ['elliptical', 'treadmill', 'walking pad', 'exercise', 'fitness', 'gym',
+                         'weights', 'yoga', 'workout', 'dumbbell'],
+    'Beauty & Personal Care': ['makeup', 'cosmetic', 'beauty', 'skincare', 'shampoo', 'soap',
+                               'hair mask', 'hair growth', 'toothbrush', 'sonicare', 'oral-b',
+                               'laser hair', 'jewelry polisher'],
+    'Sports & Outdoors': ['sport', 'outdoor', 'camping', 'hiking', 'tent', 'backpack', 'paddle',
+                         'sup', 'paddleboard', 'volleyball', 'badminton', 'trampoline'],
+    'Toys & Games': ['toy', 'game', 'lego', 'puzzle', 'board game', 'building kit', 'playset'],
+    'Health & Wellness': ['vitamin', 'supplement', 'health', 'wellness', 'fitness', 'electrolyte',
+                         'multivitamin', 'gummy vitamin', 'dna test', '23andme', 'protein'],
+    'Baby & Kids': ['car seat', 'booster seat', 'booster', 'baby', 'infant', 'toddler', 'stroller', 'diaper'],
+    'Automotive': ['truck', 'vehicle', 'automotive', 'auto tire', 'auto oil', 'car tire', 'car oil'],
+    'Services': ['hire', 'service', 'arborist']
+}
+
+RETAIL_CATEGORY_ORDER = [
+    'Baby & Kids', 'Pet Supplies', 'Mobile Devices', 'Photography', 'Gaming',
+    'Fitness Equipment', 'Tools & Garden', 'Food & Groceries', 'Services', 'Automotive',
+    'Electronics', 'Home & Kitchen', 'Clothing', 'Beauty & Personal Care',
+    'Sports & Outdoors', 'Toys & Games', 'Health & Wellness', 'Books & Media'
+]
+
+MAX_PAGE_LIMIT = 500
+
+
 class DataProcessor:
     def __init__(self):
-        # Database is initialized, no need to load CSV files
         pass
     
     def get_summary(self):
@@ -102,30 +152,32 @@ class DataProcessor:
                     GROUP BY period
                     ORDER BY period
                 ''')
-                # Merge with retail data
-                digital_data = {row['period']: {'spending': float(row['spending'] or 0), 'count': row['order_count']} 
+                # Merge with retail data using dict for O(1) lookups
+                label_index = {label: i for i, label in enumerate(result['labels'])}
+                digital_data = {row['period']: {'spending': float(row['spending'] or 0), 'count': row['order_count']}
                                for row in cursor.fetchall()}
-                
+
                 for period_key, data in digital_data.items():
-                    if period_key in result['labels']:
-                        idx = result['labels'].index(period_key)
+                    if period_key in label_index:
+                        idx = label_index[period_key]
                         result['values'][idx] += data['spending']
                         result['orderCounts'][idx] += data['count']
                     else:
+                        label_index[period_key] = len(result['labels'])
                         result['labels'].append(period_key)
                         result['values'].append(data['spending'])
                         result['orderCounts'].append(data['count'])
-                
+
                 # Sort by period
                 sorted_data = sorted(zip(result['labels'], result['values'], result['orderCounts']))
                 result['labels'] = [x[0] for x in sorted_data]
                 result['values'] = [x[1] for x in sorted_data]
                 result['orderCounts'] = [x[2] for x in sorted_data]
-            
+
             elif period == 'yearly':
                 # Retail orders
                 cursor.execute('''
-                    SELECT 
+                    SELECT
                         strftime('%Y', order_date) as period,
                         SUM(total_owed) as spending,
                         COUNT(DISTINCT order_id) as order_count
@@ -141,10 +193,10 @@ class DataProcessor:
                     result['labels'].append(row['period'])
                     result['values'].append(float(row['spending'] or 0))
                     result['orderCounts'].append(row['order_count'])
-                
+
                 # Digital orders
                 cursor.execute('''
-                    SELECT 
+                    SELECT
                         strftime('%Y', order_date) as period,
                         SUM(our_price) as spending,
                         COUNT(DISTINCT order_id) as order_count
@@ -155,74 +207,27 @@ class DataProcessor:
                     GROUP BY period
                     ORDER BY period
                 ''')
-                digital_data = {row['period']: {'spending': float(row['spending'] or 0), 'count': row['order_count']} 
+                label_index = {label: i for i, label in enumerate(result['labels'])}
+                digital_data = {row['period']: {'spending': float(row['spending'] or 0), 'count': row['order_count']}
                                for row in cursor.fetchall()}
-                
+
                 for period_key, data in digital_data.items():
-                    if period_key in result['labels']:
-                        idx = result['labels'].index(period_key)
+                    if period_key in label_index:
+                        idx = label_index[period_key]
                         result['values'][idx] += data['spending']
                         result['orderCounts'][idx] += data['count']
                     else:
+                        label_index[period_key] = len(result['labels'])
                         result['labels'].append(period_key)
                         result['values'].append(data['spending'])
                         result['orderCounts'].append(data['count'])
-                
+
                 sorted_data = sorted(zip(result['labels'], result['values'], result['orderCounts']))
                 result['labels'] = [x[0] for x in sorted_data]
                 result['values'] = [x[1] for x in sorted_data]
                 result['orderCounts'] = [x[2] for x in sorted_data]
-        
+
         return result
-    
-        """Get top products by quantity or spending"""
-        products = []
-        
-        with get_db() as conn:
-            cursor = conn.cursor()
-            
-            if by == 'quantity':
-                cursor.execute('''
-                    SELECT 
-                        product_name as name,
-                        SUM(quantity) as total_quantity,
-                        SUM(total_owed) as total_spending,
-                        COUNT(DISTINCT order_id) as order_count
-                    FROM retail_orders
-                    WHERE order_status != 'Cancelled'
-                      AND total_owed IS NOT NULL
-                      AND total_owed > 0
-                      AND product_name IS NOT NULL
-                    GROUP BY product_name
-                    ORDER BY total_quantity DESC
-                    LIMIT ?
-                ''', (limit,))
-            else:  # by spending
-                cursor.execute('''
-                    SELECT 
-                        product_name as name,
-                        SUM(quantity) as total_quantity,
-                        SUM(total_owed) as total_spending,
-                        COUNT(DISTINCT order_id) as order_count
-                    FROM retail_orders
-                    WHERE order_status != 'Cancelled'
-                      AND total_owed IS NOT NULL
-                      AND total_owed > 0
-                      AND product_name IS NOT NULL
-                    GROUP BY product_name
-                    ORDER BY total_spending DESC
-                    LIMIT ?
-                ''', (limit,))
-            
-            for row in cursor.fetchall():
-                products.append({
-                    'name': row['name'] or 'Unknown',
-                    'quantity': row['total_quantity'] or 0,
-                    'spending': float(row['total_spending'] or 0),
-                    'orders': row['order_count'] or 0
-                })
-        
-        return {'products': products}
     
     def get_return_stats(self):
         """Get return statistics"""
@@ -438,48 +443,6 @@ class DataProcessor:
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Categories (reuse existing logic but filter for retail only)
-            category_keywords = {
-                'Electronics': ['battery', 'charger', 'headphone', 'earbud', 'cable', 'wireless', 'led', 'display', 'screen', 
-                               'monitor', 'keyboard', 'mouse', 'router', 'wifi', 'ethernet', 'speaker', 'amplifier', 
-                               'kindle', 'e-reader', 'chromebook', 'laptop', 'computer', 'hard drive', 'external drive',
-                               'smart lock', 'smart home', 'security camera', 'nvr', 'camera system'],
-                'Mobile Devices': ['iphone', 'ipad', 'smartphone', 'tablet', 'apple watch', 'smartwatch', 
-                                  'smart watch', 'huawei watch', 'samsung phone', 'google pixel', 'oura ring'],
-                'Photography': ['lens', 'canon ef', 'canon ef-', 'canon ef-m', 'sigma', 'photography', 
-                               'dslr', 'mirrorless', 'camcorder', 'vixia', 'powershot', 'eos', 
-                               'viewfinder', 'camera lens'],
-                'Gaming': ['playstation', 'nintendo', 'xbox', 'switch', 'ps4', 'ps5', 'wii', 'game console', 
-                          'gamepad', 'controller', 'video game', 'gaming'],
-                'Clothing': ['shirt', 'jacket', 'hoodie', 'pants', 'dress', 'shoes', 'socks', 'clothing', 'apparel',
-                            'slipper', 'boot', 'sunglasses', 'glasses', 'rain jacket', 'raincoat'],
-                'Home & Kitchen': ['cabinet', 'organizer', 'storage', 'container', 'mattress', 'bedding', 
-                                  'curtain', 'drape', 'coffee maker', 'coffee brewer', 'nespresso', 
-                                  'moccamaster', 'blender', 'vitamix', 'pasta maker', 'smoker', 
-                                  'air conditioner', 'vacuum', 'roomba', 'dyson', 'air purifier', 
-                                  'hepa', 'popcorn machine', 'aerogarden', 'chicken coop door'],
-                'Tools & Garden': ['lawn mower', 'lawn sweepr', 'string trimmer', 'chipper', 'shredder', 
-                                  'fence', 'mesh', 'generator', 'tool', 'garden', 'yard', 'landscaping', 
-                                  'arborist', 'utility cart', 'garden cart'],
-                'Pet Supplies': ['dog food', 'cat food', 'pet food', 'chicken feed', 'layer pellets', 'layer pellet',
-                                'mixed grains scratch', 'goat feed', 'goat snax', 'pet treat', 'bully stick', 
-                                'dog chew', 'dog treat', 'animal feed', 'feed for', 'dog chews'],
-                'Food & Groceries': ['pancake mix', 'food', 'grocery', 'ingredient', 'spice', 'seasoning'],
-                'Fitness Equipment': ['elliptical', 'treadmill', 'walking pad', 'exercise', 'fitness', 'gym',
-                                     'weights', 'yoga', 'workout', 'dumbbell'],
-                'Beauty & Personal Care': ['makeup', 'cosmetic', 'beauty', 'skincare', 'shampoo', 'soap',
-                                           'hair mask', 'hair growth', 'toothbrush', 'sonicare', 'oral-b',
-                                           'laser hair', 'jewelry polisher'],
-                'Sports & Outdoors': ['sport', 'outdoor', 'camping', 'hiking', 'tent', 'backpack', 'paddle',
-                                     'sup', 'paddleboard', 'volleyball', 'badminton', 'trampoline'],
-                'Toys & Games': ['toy', 'game', 'lego', 'puzzle', 'board game', 'building kit', 'playset'],
-                'Health & Wellness': ['vitamin', 'supplement', 'health', 'wellness', 'fitness', 'electrolyte',
-                                     'multivitamin', 'gummy vitamin', 'dna test', '23andme', 'protein'],
-                'Baby & Kids': ['car seat', 'booster seat', 'booster', 'baby', 'infant', 'toddler', 'stroller', 'diaper'],
-                'Automotive': ['truck', 'vehicle', 'automotive', 'auto tire', 'auto oil', 'car tire', 'car oil'],
-                'Services': ['hire', 'service', 'arborist']
-            }
-            
             categories = defaultdict(float)
             cursor.execute('''
                 SELECT product_name, SUM(total_owed) as spending
@@ -491,28 +454,21 @@ class DataProcessor:
                 GROUP BY product_name
             ''')
             
-            category_order = [
-                'Baby & Kids', 'Pet Supplies', 'Mobile Devices', 'Photography', 'Gaming', 
-                'Fitness Equipment', 'Tools & Garden', 'Food & Groceries', 'Services', 'Automotive',
-                'Electronics', 'Home & Kitchen', 'Clothing', 'Beauty & Personal Care',
-                'Sports & Outdoors', 'Toys & Games', 'Health & Wellness', 'Books & Media'
-            ]
-            
             for row in cursor.fetchall():
                 product_name = (row['product_name'] or '').lower()
                 category_found = False
-                
-                for category in category_order:
-                    if category in category_keywords:
-                        keywords = category_keywords[category]
+
+                for category in RETAIL_CATEGORY_ORDER:
+                    if category in RETAIL_CATEGORY_KEYWORDS:
+                        keywords = RETAIL_CATEGORY_KEYWORDS[category]
                         if any(keyword in product_name for keyword in keywords):
                             categories[category] += float(row['spending'] or 0)
                             category_found = True
                             break
-                
+
                 if not category_found:
-                    for category, keywords in category_keywords.items():
-                        if category not in category_order:
+                    for category, keywords in RETAIL_CATEGORY_KEYWORDS.items():
+                        if category not in RETAIL_CATEGORY_ORDER:
                             if any(keyword in product_name for keyword in keywords):
                                 categories[category] += float(row['spending'] or 0)
                                 category_found = True
@@ -715,49 +671,7 @@ class DataProcessor:
         """Get orders filtered by category with price and date filters"""
         orders = []
         
-        # Map category to keywords
-        category_keywords = {
-            'Electronics': ['battery', 'charger', 'headphone', 'earbud', 'cable', 'wireless', 'led', 'display', 'screen', 
-                           'monitor', 'keyboard', 'mouse', 'router', 'wifi', 'ethernet', 'speaker', 'amplifier', 
-                           'kindle', 'e-reader', 'chromebook', 'laptop', 'computer', 'hard drive', 'external drive',
-                           'smart lock', 'smart home', 'security camera', 'nvr', 'camera system'],
-            'Mobile Devices': ['iphone', 'ipad', 'smartphone', 'tablet', 'apple watch', 'smartwatch', 
-                              'smart watch', 'huawei watch', 'samsung phone', 'google pixel', 'oura ring'],
-            'Photography': ['lens', 'canon ef', 'canon ef-', 'canon ef-m', 'sigma', 'photography', 
-                           'dslr', 'mirrorless', 'camcorder', 'vixia', 'powershot', 'eos', 
-                           'viewfinder', 'camera lens'],
-            'Gaming': ['playstation', 'nintendo', 'xbox', 'switch', 'ps4', 'ps5', 'wii', 'game console', 
-                      'gamepad', 'controller', 'video game', 'gaming'],
-            'Clothing': ['shirt', 'jacket', 'hoodie', 'pants', 'dress', 'shoes', 'socks', 'clothing', 'apparel',
-                        'slipper', 'boot', 'sunglasses', 'glasses', 'rain jacket', 'raincoat'],
-            'Home & Kitchen': ['cabinet', 'organizer', 'storage', 'container', 'mattress', 'bedding', 
-                              'curtain', 'drape', 'coffee maker', 'coffee brewer', 'nespresso', 
-                              'moccamaster', 'blender', 'vitamix', 'pasta maker', 'smoker', 
-                              'air conditioner', 'vacuum', 'roomba', 'dyson', 'air purifier', 
-                              'hepa', 'popcorn machine', 'aerogarden', 'chicken coop door'],
-            'Tools & Garden': ['lawn mower', 'lawn sweepr', 'string trimmer', 'chipper', 'shredder', 
-                              'fence', 'mesh', 'generator', 'tool', 'garden', 'yard', 'landscaping', 
-                              'arborist', 'utility cart', 'garden cart'],
-            'Pet Supplies': ['dog food', 'cat food', 'pet food', 'chicken feed', 'layer pellets', 'layer pellet',
-                            'mixed grains scratch', 'goat feed', 'goat snax', 'pet treat', 'bully stick', 
-                            'dog chew', 'dog treat', 'animal feed', 'feed for', 'dog chews'],
-            'Food & Groceries': ['pancake mix', 'food', 'grocery', 'ingredient', 'spice', 'seasoning'],
-            'Fitness Equipment': ['elliptical', 'treadmill', 'walking pad', 'exercise', 'fitness', 'gym',
-                                 'weights', 'yoga', 'workout', 'dumbbell'],
-            'Beauty & Personal Care': ['makeup', 'cosmetic', 'beauty', 'skincare', 'shampoo', 'soap',
-                                       'hair mask', 'hair growth', 'toothbrush', 'sonicare', 'oral-b',
-                                       'laser hair', 'jewelry polisher'],
-            'Sports & Outdoors': ['sport', 'outdoor', 'camping', 'hiking', 'tent', 'backpack', 'paddle',
-                                 'sup', 'paddleboard', 'volleyball', 'badminton', 'trampoline'],
-            'Toys & Games': ['toy', 'game', 'lego', 'puzzle', 'board game', 'building kit', 'playset'],
-            'Health & Wellness': ['vitamin', 'supplement', 'health', 'wellness', 'fitness', 'electrolyte',
-                                 'multivitamin', 'gummy vitamin', 'dna test', '23andme', 'protein'],
-            'Baby & Kids': ['car seat', 'booster seat', 'booster', 'baby', 'infant', 'toddler', 'stroller', 'diaper'],
-            'Automotive': ['truck', 'vehicle', 'automotive', 'auto tire', 'auto oil', 'car tire', 'car oil'],
-            'Services': ['hire', 'service', 'arborist']
-        }
-        
-        keywords = category_keywords.get(category, [])
+        keywords = RETAIL_CATEGORY_KEYWORDS.get(category, [])
         
         with get_db() as conn:
             cursor = conn.cursor()
@@ -780,7 +694,7 @@ class DataProcessor:
             elif category == 'Other':
                 # For "Other", exclude all known categories
                 all_keywords = []
-                for cats in category_keywords.values():
+                for cats in RETAIL_CATEGORY_KEYWORDS.values():
                     all_keywords.extend(cats)
                 keyword_placeholders = " AND ".join([f"LOWER(product_name) NOT LIKE ?" for _ in all_keywords])
                 where_conditions.append(f"({keyword_placeholders})")

@@ -1,29 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getDigitalVsRetail, DigitalVsRetail } from '../api';
+import { useApiData } from '../hooks/useApiData';
 
 const DigitalVsRetailChart: React.FC = () => {
-  const [data, setData] = useState<DigitalVsRetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error } = useApiData<DigitalVsRetail>(getDigitalVsRetail);
   const [view, setView] = useState<'orders' | 'spending'>('spending');
-
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const result = await getDigitalVsRetail();
-        setData(result);
-      } catch (error) {
-        console.error('Error loading digital vs retail:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
 
   if (loading) {
     return <div className="text-center py-8 text-gray-500">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-500">Failed to load comparison data</div>;
   }
 
   if (!data) {
@@ -74,14 +63,14 @@ const DigitalVsRetailChart: React.FC = () => {
         <BarChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="type" tick={{ fontSize: 12 }} />
-          <YAxis 
-            tickFormatter={(value) => view === 'spending' 
+          <YAxis
+            tickFormatter={(value) => view === 'spending'
               ? `$${value.toLocaleString()}`
               : value.toLocaleString()
             }
             tick={{ fontSize: 12 }}
           />
-          <Tooltip 
+          <Tooltip
             formatter={(value: number | undefined) => value ? (view === 'spending'
               ? `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               : value.toLocaleString()) : ''
